@@ -199,6 +199,13 @@ get_numbers = () {
 };
 ```
 
+```rb
+# Tuples #
+
+numbers = (1, 2, 3)
+log(numbers.mul(2)) # (2, 4, 6)
+```
+
 ## Special Words
 
 There are no reserved keywords, but these are "special" words:
