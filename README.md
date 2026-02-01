@@ -61,9 +61,13 @@ a = b && c;
 ```rb
 # Classes #
 
-cat = () {
+cat = {
     meow = () {
         log("Meow");
+    };
+
+    call = () {
+        return(this.copy());
     };
 };
 
@@ -77,8 +81,8 @@ tama.meow();
 cat = {
     name = "";
 
-    create = (_name) {
-        name = _name;
+    create = (name) {
+        this.name = name;
     };
 
     call = () {
@@ -92,22 +96,22 @@ tama(); # meow #
 ```
 
 ```rb
-# This #
+# Current Scope #
 
 number = 5;
-log(this().get("number")); # 5 #
+log(scope().get("number")); # 5 #
 ```
 
 ```rb
 # Inheritance #
 
-animal = () {
+animal = {
     name = () {
         return("Animal");
     };
 };
 
-cat = () {
+cat = {
     components = list(animal);
 
     meow = () {
@@ -184,14 +188,7 @@ get_numbers = () {
     });
 };
 
-# Implicit (possibly?) #
-get_numbers = () {
-    for (range(1, inf), (n) {
-        return(yield(n));
-    });
-};
-
-# Implicit #
+# Shorthand #
 get_numbers = () {
     number = 0;
 
@@ -205,5 +202,5 @@ get_numbers = () {
 ## Special Words
 
 There are no reserved keywords, but these are "special" words:
-- `call` - name of sub-closure called when closure called
-- `components` - name of list to search for identifiers
+- `call` - name of sub-object called when object called
+- `components` - name of list to search for identifiers (first checks `scope()`, then `this`, then each of `components` in breadth-first search)
