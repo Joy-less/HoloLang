@@ -4,6 +4,7 @@
 
 ```rb
 # FizzBuzz #
+
 fizzbuzz = (n) {
     for (range(1, 10), (i) {
         if (i.mod(3).equals(0) .and (i.mod(5).equals(0)), () {
@@ -24,6 +25,7 @@ fizzbuzz = (n) {
 
 ```rb
 # Double Numbers #
+
 numbers = list(1, 2, 3, 4, 5);
 for (numbers, (i, number) {
     numbers.set(i, number.mul(2));
@@ -33,7 +35,8 @@ log(numbers); # [2, 4, 6, 8, 10] #
 
 ```rb
 # Break Loop #
-break = () {}
+
+break = {};
 try (() {
     for (range(1, 10), (i) {
         for (range(1, 10), (j) {
@@ -48,8 +51,115 @@ try (() {
 
 ```rb
 # Macros #
-a = b.and(c)
+
+a = b.and(c);
 
 $macro("&&", (".and(", ")"));
-a = b && c
+a = b && c;
+```
+
+```rb
+# Classes #
+
+cat = () {
+    meow = () {
+        log("Meow");
+    };
+};
+
+tama = cat();
+tama.meow();
+```
+
+```rb
+# Static Classes #
+
+cat = {
+    name = "";
+
+    create = (_name) {
+        name = _name;
+    };
+
+    call = () {
+        log("meow");
+    };
+};
+
+tama = cat.create("Tama");
+log(tama.name); # Tama #
+tama(); # meow #
+```
+
+```rb
+# This #
+
+number = 5;
+log(this().get("number")); # 5 #
+```
+
+```rb
+# Inheritance #
+
+animal = () {
+    name = () {
+        return("Animal");
+    };
+};
+
+cat = () {
+    components = list(animal);
+
+    meow = () {
+        log("Meow");
+    };
+};
+
+tama = cat();
+log(tama.name); # Animal #
+tama.meow(); # Meow #
+```
+
+```rb
+# Actors #
+
+a1 = actor();
+a2 = actor();
+
+resource = "food";
+
+a1.run(() {
+    log(resource.append(" 1"));
+});
+a2.run(() {
+    wait();
+    log(resource.append(" 2"));
+});
+
+log(resource.append(" 3"));
+wait();
+log(resource.append(" 4"));
+
+##
+# food 3
+# food 1
+# food 4
+# food 2
+##
+```
+
+```rb
+# Named Arguments & Default Arguments #
+
+meow = (count = 3) {
+    s = "";
+    for (range(1, count), (n) {
+        s = s.append("meow").append(" ");
+    });
+    log(s);
+};
+
+meow(); # meow meow meow  "
+meow(count = 5); # meow meow meow meow meow  #
+meow(2); # meow meow  #
 ```
