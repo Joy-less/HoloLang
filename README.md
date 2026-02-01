@@ -164,6 +164,44 @@ meow(count = 5); # meow meow meow meow meow  #
 meow(2); # meow meow  #
 ```
 
+```rb
+# Generators #
+
+# Explicit #
+get_numbers = () {
+    return({
+        components = list(generator);
+
+        number = 0;
+
+        current = () {
+            return(number);
+        };
+        next = () {
+            number = number.add(1);
+            return(true, number);
+        };
+    });
+};
+
+# Implicit (possibly?) #
+get_numbers = () {
+    for (range(1, inf), (n) {
+        return(yield(n));
+    });
+};
+
+# Implicit #
+get_numbers = () {
+    number = 0;
+
+    return generator.create(() {
+        number = number.add(1);
+        return(number);
+    });
+};
+```
+
 ## Special Words
 
 There are no reserved keywords, but these are "special" words:
