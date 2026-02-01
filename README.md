@@ -163,3 +163,9 @@ meow(); # meow meow meow  "
 meow(count = 5); # meow meow meow meow meow  #
 meow(2); # meow meow  #
 ```
+
+## Special Words
+
+There are no reserved keywords, but these are "special" words:
+- `call` - name of sub-closure called when closure called
+- `components` - name of list to search for identifiers
