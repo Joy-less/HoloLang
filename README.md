@@ -211,7 +211,7 @@ log(numbers.mul(2)); # (2, 4, 6)
 
 numbers tuple.of(int) = (1, 2, 3);
 
-stringlist list.of(string) = list("a");
+stringlist (list.of(string)) = list("a");
 stringlist.append("b");
 
 num (int, null) = null;
