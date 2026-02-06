@@ -61,7 +61,7 @@ a = b && c;
 ```rb
 # Classes #
 
-cat = {
+Cat = {
     meow = () {
         log("Meow");
     };
@@ -71,14 +71,14 @@ cat = {
     };
 };
 
-tama = cat();
+tama = Cat();
 tama.meow();
 ```
 
 ```rb
 # Static Classes #
 
-cat = {
+Cat = {
     name = "";
 
     create = (name) {
@@ -90,7 +90,7 @@ cat = {
     };
 };
 
-tama = cat.create("Tama");
+tama = Cat.create("Tama");
 log(tama.name); # Tama #
 tama(); # meow #
 ```
@@ -105,21 +105,21 @@ log(scope().get("number")); # 5 #
 ```rb
 # Inheritance #
 
-animal = {
+Animal = {
     name = () {
         return("Animal");
     };
 };
 
-cat = {
-    components = list(animal);
+Cat = {
+    components = list(Animal);
 
     meow = () {
         log("Meow");
     };
 };
 
-tama = cat();
+tama = Cat();
 log(tama.name); # Animal #
 tama.meow(); # Meow #
 ```
@@ -127,8 +127,8 @@ tama.meow(); # Meow #
 ```rb
 # Actors #
 
-a1 = actor();
-a2 = actor();
+a1 = Actor();
+a2 = Actor();
 
 resource = "food";
 
