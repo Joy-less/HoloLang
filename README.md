@@ -202,8 +202,20 @@ get_numbers = () {
 ```rb
 # Tuples #
 
-numbers = (1, 2, 3)
-log(numbers.mul(2)) # (2, 4, 6)
+numbers = (1, 2, 3);
+log(numbers.mul(2)); # (2, 4, 6)
+```
+
+```rb
+# Static Typing #
+
+numbers tuple.of(int) = (1, 2, 3);
+
+stringlist list.of(string) = list("a");
+stringlist.append("b");
+
+num (int, null) = null;
+log(num); # null
 ```
 
 ## Special Words
