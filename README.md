@@ -99,7 +99,7 @@ tama(); # meow #
 # Current Scope #
 
 number = 5;
-log(scope().get("number")); # 5 #
+log(this(false).get("number")); # 5 #
 ```
 
 ```rb
