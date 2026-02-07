@@ -50,6 +50,14 @@ try (() {
 ```
 
 ```rb
+# Compound Assignment #
+
+a = 1;
+a = a.add(2);
+a = .add(2);
+```
+
+```rb
 # Macros #
 
 a = b.and(c);
