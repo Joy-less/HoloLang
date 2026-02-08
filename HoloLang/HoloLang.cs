@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace HoloLang;
@@ -101,20 +102,20 @@ public sealed class Parser {
         Index = 0;
     }
 
-    public static Result<List<Expression>, string> Parse(string Source) {
+    public static Result<Expression, string> Parse(string Source) {
         Parser Parser = new(Source);
 
-        Result<List<Expression>, string> ExpressionsResult = Parser.ParseExpressions();
-        if (ExpressionsResult.IsError) {
-            return Result<List<Expression>, string>.FromError(ExpressionsResult.Error);
+        Result<Expression, string> ExpressionResult = Parser.ParseExpression();
+        if (ExpressionResult.IsError) {
+            return Result<Expression, string>.FromError(ExpressionResult.Error);
         }
 
         Result<Success, string> EndOfInputResult = Parser.ParseEndOfInput();
         if (EndOfInputResult.IsError) {
-            return Result<List<Expression>, string>.FromError(EndOfInputResult.Error);
+            return Result<Expression, string>.FromError(EndOfInputResult.Error);
         }
 
-        return Result<List<Expression>, string>.FromValue(ExpressionsResult.Value);
+        return Result<Expression, string>.FromValue(ExpressionResult.Value);
     }
 
     private Result<Success, string> ParseEndOfInput() {
@@ -127,7 +128,7 @@ public sealed class Parser {
         }
         return Result<Success, string>.FromSuccess();
     }
-    private Result<List<Expression>, string> ParseExpressions() {
+    private Result<Expression, string> ParseExpression() {
         List<Expression> Expressions = [];
 
         for (; Index < Source.Length; Index++) {
@@ -145,13 +146,12 @@ public sealed class Parser {
                 int StringStartIndex = Index;
                 Result<Success, string> StringResult = ReadString();
                 if (StringResult.IsError) {
-                    return Result<List<Expression>, string>.FromError(StringResult.Error);
+                    return Result<Expression, string>.FromError(StringResult.Error);
                 }
                 ReadOnlySpan<char> String = Source.AsSpan(StringStartIndex..Index);
 
-                // Create literal string expression
-                Box Box = Box.FromString(new string(String));
-                Expressions.Add(new BoxExpression(Box));
+                // Create string expression
+                Expressions.Add(new StringExpression(Encoding.UTF8.GetBytes(new string(String)))); // TODO: improve performance of (ReadOnlySpan<char> -> IEnumerable<byte>)
             }
             // Number
             else if (Source[Index] is (>= '0' and <= '9') or '-' or '+') {
@@ -159,15 +159,18 @@ public sealed class Parser {
                 int NumberStartIndex = Index;
                 Result<Success, string> NumberResult = ReadNumber();
                 if (NumberResult.IsError) {
-                    return Result<List<Expression>, string>.FromError(NumberResult.Error);
+                    return Result<Expression, string>.FromError(NumberResult.Error);
                 }
                 ReadOnlySpan<char> Number = Source.AsSpan(NumberStartIndex..Index);
 
-                // Create literal number expression
-                Box Box = Number.Contains('.')
-                    ? Box.FromReal(double.Parse(Number))
-                    : Box.FromInteger(long.Parse(Number));
-                Expressions.Add(new BoxExpression(Box));
+                // Create real expression
+                if (Number.Contains('.')) {
+                    Expressions.Add(new RealExpression(double.Parse(Number)));
+                }
+                // Create integer expression
+                else {
+                    Expressions.Add(new IntegerExpression(long.Parse(Number)));
+                }
             }
             // Identifier
             else if (Source[Index] is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or '_') {
@@ -175,23 +178,41 @@ public sealed class Parser {
                 int IdentifierStartIndex = Index;
                 Result<Success, string> IdentifierResult = ReadIdentifier();
                 if (IdentifierResult.IsError) {
-                    return Result<List<Expression>, string>.FromError(IdentifierResult.Error);
+                    return Result<Expression, string>.FromError(IdentifierResult.Error);
                 }
                 ReadOnlySpan<char> Identifier = Source.AsSpan(IdentifierStartIndex..Index);
 
-                // Create get expression
-                Expressions.Add(new GetExpression(null, new string(Identifier)));
+                // Consume whitespace
+                ReadWhitespace();
+
+                // Assignment
+                if (Source[Index] is '=') {
+                    Index++;
+
+                    // Consume expression
+                    Result<Expression, string> ValueResult = ParseExpression();
+                    if (ValueResult.IsError) {
+                        return Result<Expression, string>.FromError(ValueResult.Error);
+                    }
+
+                    // Create assign expression
+                    Expressions.Add(new AssignExpression(null, new string(Identifier), ValueResult.Value));
+                }
+                else {
+                    // Create get expression
+                    Expressions.Add(new GetExpression(null, new string(Identifier)));
+                }
             }
             // Box
             else if (Source[Index] is '{') {
-                // Consume box
-                Result<Box, string> BoxResult = ParseBox();
+                // Consume box expression
+                Result<BoxExpression, string> BoxResult = ParseBox();
                 if (BoxResult.IsError) {
-                    return Result<List<Expression>, string>.FromError(BoxResult.Error);
+                    return Result<Expression, string>.FromError(BoxResult.Error);
                 }
 
-                // Create box expression
-                Expressions.Add(new BoxExpression(BoxResult.Value));
+                // Add box expression
+                Expressions.Add(BoxResult.Value);
             }
 
             // Whitespace
@@ -208,26 +229,29 @@ public sealed class Parser {
             }
         }
 
-        return Result<List<Expression>, string>.FromValue(Expressions);
+        if (Expressions.Count == 1) {
+            return Result<Expression, string>.FromValue(Expressions[0]);
+        }
+        return Result<Expression, string>.FromValue(new MultiExpression(Expressions));
     }
-    private Result<Box, string> ParseBox() {
+    private Result<BoxExpression, string> ParseBox() {
         if (Source[Index] is not '{') {
-            return Result<Box, string>.FromError("Expected `{` to start box");
+            return Result<BoxExpression, string>.FromError("Expected `{` to start box");
         }
         Index++;
 
-        Result<List<Expression>, string> ExpressionsResult = ParseExpressions();
+        Result<Expression, string> ExpressionsResult = ParseExpression();
         if (ExpressionsResult.IsError) {
-            return Result<Box, string>.FromError(ExpressionsResult.Error);
+            return Result<BoxExpression, string>.FromError(ExpressionsResult.Error);
         }
 
         if (Source[Index] is not '}') {
-            return Result<Box, string>.FromError("Expected `}` to end box");
+            return Result<BoxExpression, string>.FromError("Expected `}` to end box");
         }
         Index++;
 
-        Box Box = Box.From(Box.FromList(), ExpressionsResult.Value, null);
-        return Result<Box, string>.FromValue(Box);
+        BoxExpression BoxExpression = new(ExpressionsResult.Value);
+        return Result<BoxExpression, string>.FromValue(BoxExpression);
     }
     private void ReadWhitespace() {
         for (; Index < Source.Length; Index++) {
@@ -306,28 +330,72 @@ public sealed class Parser {
 
 public abstract class Expression {
 }
+public class MultiExpression : Expression {
+    public List<Expression> Expressions { get; set; }
+
+    public MultiExpression(List<Expression> Expressions) {
+        this.Expressions = Expressions;
+    }
+}
 public class GetExpression : Expression {
-    public Expression? Chain { get; }
+    public Expression? Target { get; set; }
     public string Member { get; set; }
 
-    public GetExpression(Expression? Chain, string Member) {
-        this.Chain = Chain;
+    public GetExpression(Expression? Target, string Member) {
+        this.Target = Target;
         this.Member = Member;
     }
 }
-public class CallExpression : Expression {
-}
 public class AssignExpression : Expression {
+    public Expression? Target { get; set; }
+    public string Member { get; set; }
+    public Expression Value { get; set; }
+
+    public AssignExpression(Expression? Target, string Member, Expression Value) {
+        this.Target = Target;
+        this.Member = Member;
+        this.Value = Value;
+    }
+}
+public class CallExpression : Expression {
+    public Expression Target { get; set; }
+    public Expression Argument { get; set; }
+
+    public CallExpression(Expression Target, Expression Argument) {
+        this.Target = Target;
+        this.Argument = Argument;
+    }
 }
 public class BoxExpression : Expression {
-    public Box Box { get; }
+    public Expression? Expression { get; set; }
 
-    public BoxExpression(Box Box) {
-        this.Box = Box;
+    public BoxExpression(Expression? Expression) {
+        this.Expression = Expression;
+    }
+}
+public class StringExpression : Expression {
+    public byte[] String { get; set; }
+
+    public StringExpression(byte[] String) {
+        this.String = String;
+    }
+}
+public class IntegerExpression : Expression {
+    public long Integer { get; set; }
+
+    public IntegerExpression(long Integer) {
+        this.Integer = Integer;
+    }
+}
+public class RealExpression : Expression {
+    public double Real { get; set; }
+
+    public RealExpression(double Real) {
+        this.Real = Real;
     }
 }
 public class ExternalCallExpression : Expression {
-    public Func<Box[], Box> ExternalFunction { get; }
+    public Func<Box[], Box> ExternalFunction { get; set; }
 
     public ExternalCallExpression(Func<Box[], Box> ExternalFunction) {
         this.ExternalFunction = ExternalFunction;
@@ -335,11 +403,12 @@ public class ExternalCallExpression : Expression {
 }
 
 public sealed class Box {
-    public const string ComponentsVariable = "components";
-    public const string CallVariable = "call";
+    public const string ComponentsVariableName = "components";
+    public const string CallVariableName = "call";
+    public const string GetVariableName = "get";
 
     public Dictionary<string, Box> Variables { get; }
-    public List<Expression> Expressions { get; }
+    public BoxMethod Method { get; }
     public object? Data { get; }
 
     public static Box Null { get; } = new();
@@ -350,50 +419,50 @@ public sealed class Box {
     public static Box List { get; } = new();
     public static Box Dictionary { get; } = new();
 
-    private Box() {
+    public Box() {
         Variables = [];
-        Expressions = [];
+        Method = new BoxMethod();
         Data = null;
     }
-    private Box(Dictionary<string, Box> Variables, List<Expression> Expressions, object? Data) {
+    private Box(Dictionary<string, Box> Variables, BoxMethod Method, object? Data) {
         this.Variables = Variables;
-        this.Expressions = Expressions;
+        this.Method = Method;
         this.Data = Data;
     }
 
-    public static Box From(Box Components, List<Expression> Expressions, object? Data) {
-        return new Box(new Dictionary<string, Box>() { [ComponentsVariable] = Components }, Expressions, Data);
+    public static Box From(Box Components, BoxMethod Method, object? Data) {
+        return new Box(new Dictionary<string, Box>() { [ComponentsVariableName] = Components }, Method, Data);
     }
     public static Box FromBoolean(bool BooleanData) {
-        return From(FromList(Boolean), [], BooleanData);
+        return From(FromList(Boolean), new BoxMethod(), BooleanData);
     }
     public static Box FromInteger(long IntegerData) {
-        return From(FromList(Integer), [], IntegerData);
+        return From(FromList(Integer), new BoxMethod(), IntegerData);
     }
     public static Box FromReal(double RealData) {
-        return From(FromList(Real), [], RealData);
+        return From(FromList(Real), new BoxMethod(), RealData);
     }
     public static Box FromString(byte[] StringData) {
-        return From(FromList(String), [], StringData);
+        return From(FromList(String), new BoxMethod(), StringData);
     }
     public static Box FromString(string StringData) {
         return FromString(Encoding.UTF8.GetBytes(StringData));
     }
     public static Box FromList(params IEnumerable<Box> ListData) {
-        return From(List, [], ListData);
+        return From(List, new BoxMethod(), ListData);
     }
     public static Box FromDictionary(IReadOnlyDictionary<Box, Box> DictionaryData) {
-        return From(FromList(Dictionary), [], DictionaryData);
+        return From(FromList(Dictionary), new BoxMethod(), DictionaryData);
     }
 
-    public Box GetVariable(string Name) {
+    public Box? GetVariable(string Name) {
         if (Variables.TryGetValue(Name, out Box? Value)) {
             return Value;
         }
-        return Null;
+        return null;
     }
     public void SetVariable(string Name, Box? Value) {
-        if (Value is null || Value == Null) {
+        if (Value is null) {
             Variables.Remove(Name);
         }
         else {
@@ -401,9 +470,259 @@ public sealed class Box {
         }
     }
     public IEnumerable<Box>? GetComponents() {
-        return GetVariable(ComponentsVariable).Data as IEnumerable<Box>;
+        return GetVariable(ComponentsVariableName)?.Data as IEnumerable<Box>;
     }
     public void SetComponents(IEnumerable<Box> Components) {
-        SetVariable(ComponentsVariable, FromList(Components));
+        SetVariable(ComponentsVariableName, FromList(Components));
+    }
+    public BoxMethod GetMethod() {
+        Box CurrentBox = this;
+        while (true) {
+            Box NewBox = CurrentBox.GetVariable(CallVariableName) ?? Null;
+            if (NewBox == Null) {
+                return CurrentBox.Method;
+            }
+            CurrentBox = NewBox;
+        }
+    }
+}
+
+public struct BoxMethod {
+    public List<string> Parameters { get; set; }
+    public Expression? Expression { get; set; }
+
+    public BoxMethod(List<string> Parameters, Expression? Expression) {
+        this.Parameters = Parameters;
+        this.Expression = Expression;
+    }
+}
+
+public sealed class Actor {
+    private readonly Lock Lock = new();
+
+    public Result<Box, string> Evaluate(Box Target, Expression Expression) {
+        Stack<Box> Values = new();
+        Values.Push(Box.Null);
+
+        Stack<Frame> Frames = new();
+        Frames.Push(new Frame(Target, Expression, 1));
+
+        lock (Lock) {
+            while (Frames.TryPeek(out Frame? CurrentFrame)) {
+                Result<Success, string> EvaluateFrameResult = EvaluateFrame(Values, Frames, CurrentFrame);
+                if (EvaluateFrameResult.IsError) {
+                    return Result<Box, string>.FromError(EvaluateFrameResult.Error);
+                }
+            }
+
+            return Result<Box, string>.FromValue(Values.Pop());
+        }
+    }
+
+    private static Result<Success, string> EvaluateFrame(Stack<Box> Values, Stack<Frame> Frames, Frame CurrentFrame) {
+        switch (CurrentFrame.Expression) {
+
+            case MultiExpression MultiExpression:
+                if (CurrentFrame.Counter < MultiExpression.Expressions.Count) {
+                    while (Values.Count > CurrentFrame.ValuesCount) {
+                        Values.Pop();
+                    }
+                    Expression NextExpression = MultiExpression.Expressions[CurrentFrame.Counter];
+                    Frames.Push(new Frame(CurrentFrame.Target, NextExpression, Values.Count));
+                }
+                else {
+                    Frames.Pop();
+                    break;
+                }
+                break;
+
+            case GetExpression GetExpression:
+                if (GetExpression.Target is not null) {
+                    switch (CurrentFrame.Counter) {
+                        case 0:
+                            Frames.Push(new Frame(CurrentFrame.Target, GetExpression.Target, Values.Count));
+                            break;
+                        case 1:
+                            Box GetTarget = Values.Pop();
+
+                            Box? GetValue = GetTarget.GetVariable(GetExpression.Member);
+                            if (GetValue is null) {
+                                return Result<Success, string>.FromError($"Variable `{GetExpression.Member}` not found");
+                            }
+                            Values.Push(GetValue);
+                            break;
+                        default:
+                            Frames.Pop();
+                            break;
+                    }
+                }
+                else {
+                    switch (CurrentFrame.Counter) {
+                        case 0:
+                            Box? GetValue = CurrentFrame.Target.GetVariable(GetExpression.Member);
+                            if (GetValue is null) {
+                                return Result<Success, string>.FromError($"Variable `{GetExpression.Member}` not found");
+                            }
+                            Values.Push(GetValue);
+                            break;
+                        default:
+                            Frames.Pop();
+                            break;
+                    }
+                }
+                break;
+
+            case AssignExpression AssignExpression:
+                if (AssignExpression.Target is not null) {
+                    switch (CurrentFrame.Counter) {
+                        case 0:
+                            Frames.Push(new Frame(CurrentFrame.Target, AssignExpression.Target, Values.Count));
+                            break;
+                        case 1:
+                            Frames.Push(new Frame(CurrentFrame.Target, AssignExpression.Value, Values.Count));
+                            break;
+                        case 2:
+                            Box AssignValue = Values.Pop();
+                            Box AssignTarget = Values.Pop();
+
+                            AssignTarget.SetVariable(AssignExpression.Member, AssignValue);
+                            Values.Push(AssignValue);
+                            break;
+                        default:
+                            Frames.Pop();
+                            break;
+                    }
+                }
+                else {
+                    switch (CurrentFrame.Counter) {
+                        case 0:
+                            Frames.Push(new Frame(CurrentFrame.Target, AssignExpression.Value, Values.Count));
+                            break;
+                        case 1:
+                            Box AssignValue = Values.Pop();
+
+                            CurrentFrame.Target.SetVariable(AssignExpression.Member, AssignValue);
+                            Values.Push(AssignValue);
+                            break;
+                        default:
+                            Frames.Pop();
+                            break;
+                    }
+                }
+                break;
+
+            case CallExpression CallExpression:
+                switch (CurrentFrame.Counter) {
+                    case 0:
+                        Frames.Push(new Frame(CurrentFrame.Target, CallExpression.Target, Values.Count));
+                        break;
+                    case 1:
+                        Frames.Push(new Frame(CurrentFrame.Target, CallExpression.Argument, Values.Count));
+                        break;
+                    case 2:
+                        Box CallArgument = Values.Pop();
+                        Box CallTarget = Values.Pop();
+
+                        BoxMethod CallMethod = CallTarget.GetMethod();
+
+                        if (CallMethod.Expression is not null) {
+                            Box CallScope = Box.From(Box.FromList(CallTarget), CallMethod, null);
+                            foreach (string Parameter in CallScope.Method.Parameters) {
+                                CallScope.SetVariable(Parameter, CallArgument.GetVariable("get")); // TODO
+                            }
+                            Frames.Push(new Frame(CallScope, CallScope.Method.Expression!, Values.Count));
+                        }
+                        break;
+                    default:
+                        Frames.Pop();
+                        break;
+                }
+                break;
+
+            case BoxExpression BoxExpression:
+                switch (CurrentFrame.Counter) {
+                    case 0:
+                        Box Box = new();
+                        Values.Push(Box);
+                        if (BoxExpression.Expression is not null) {
+                            Frames.Push(new Frame(Box, BoxExpression.Expression, Values.Count));
+                        }
+                        break;
+                    case 1:
+                        while (Values.Count > CurrentFrame.ValuesCount + 1) {
+                            Values.Pop();
+                        }
+                        break;
+                    default:
+                        Frames.Pop();
+                        break;
+                }
+                break;
+
+            case StringExpression StringExpression:
+                switch (CurrentFrame.Counter) {
+                    case 0:
+                        Values.Push(Box.FromString(StringExpression.String));
+                        break;
+                    default:
+                        Frames.Pop();
+                        break;
+                }
+                break;
+
+            case IntegerExpression IntegerExpression:
+                switch (CurrentFrame.Counter) {
+                    case 0:
+                        Values.Push(Box.FromInteger(IntegerExpression.Integer));
+                        break;
+                    default:
+                        Frames.Pop();
+                        break;
+                }
+                break;
+
+            case RealExpression RealExpression:
+                switch (CurrentFrame.Counter) {
+                    case 0:
+                        Values.Push(Box.FromReal(RealExpression.Real));
+                        break;
+                    default:
+                        Frames.Pop();
+                        break;
+                }
+                break;
+
+            case ExternalCallExpression ExternalCallExpression:
+                switch (CurrentFrame.Counter) {
+                    case 0:
+                        throw new NotImplementedException();
+                    default:
+                        Frames.Pop();
+                        break;
+                }
+                break;
+
+            default:
+                return Result<Success, string>.FromError($"Unknown expression: {CurrentFrame.Expression.GetType()}");
+
+        }
+
+        CurrentFrame.Counter++;
+
+        return Result<Success, string>.FromSuccess();
+    }
+
+    private sealed class Frame {
+        public Box Target { get; set; }
+        public Expression Expression { get; set; }
+        public int Counter { get; set; }
+        public int ValuesCount { get; set; }
+
+        public Frame(Box Target, Expression Expression, int ValuesCount) {
+            this.Target = Target;
+            this.Expression = Expression;
+            Counter = 0;
+            this.ValuesCount = ValuesCount;
+        }
     }
 }

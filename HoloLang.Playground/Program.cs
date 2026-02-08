@@ -1,12 +1,22 @@
 ﻿using HoloLang;
 
-List<Expression> Expressions = Parser.Parse("""
+// Parse
+
+Expression Expression = Parser.Parse("""
     "hello there";
     4.6;
 
     {
-        a;
-    }
+        a = 3;
+    };
     """).Value;
 
-_ = Expressions;
+_ = Expression;
+
+// Evaluate
+
+Actor Actor = new();
+Box Target = new();
+
+Result<Box, string> Result = Actor.Evaluate(Target, Expression);
+_ = Result;
