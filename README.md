@@ -1,6 +1,6 @@
-# Minimal Language Project
+# Holo
 
-## Example Code
+## Example
 
 ```rb
 # FizzBuzz #
@@ -23,21 +23,212 @@ fizzbuzz = (n) {
 };
 ```
 
-```rb
-# Double Numbers #
+## Design
 
-numbers = list(1, 2, 3, 4, 5);
-for (numbers, (i, number) {
-    numbers.set(i, number.mul(2));
-});
-log(numbers); # [2, 4, 6, 8, 10] #
+### Boxes
+
+A box is a fundamental object in Holo. You can create one with curly braces (`{}`).
+```rb
+my_box = {};
 ```
 
-```rb
-# Break Loop #
+Boxes have a dictionary of named variables and values.
 
-break_loops = {};
-catch (break_loops, () {
+Some boxes have an external data object, for example a string or a number, which is used for primitive types.
+
+Boxes have a method which is called when the box is called (unless `get` is defined). The method has a tuple representing the list of parameters, and an expression evaluated when the method is called.
+
+Every box belongs to an actor, which prevents the box being used concurrently.
+
+<!--
+Boxes contain:
+- Actor: Every box belongs to an actor.
+- Data: An external object, for example a string.
+- Variables: A dictionary of string names and box values.
+- Method: A method called when the box is called (unless `get` is defined).
+  - Parameters: A tuple representing the list of parameters.
+  - Expression: An expression evaluated when the method is called.
+-->
+
+### Methods
+
+A box can be defined with a method which is evaluated when the box is called.
+```rb
+my_box = () {
+    log("hello");
+};
+my_box();
+```
+
+This method can be overridden with a variable called `get`.
+```rb
+my_box = {
+    get = () {
+        log("hello");
+    };
+};
+my_box();
+```
+
+### Tuples
+
+A tuple is a syntax structure that contains a list of tuple elements. You can create one with brackets (`()`).
+```rb
+# Pass a tuple of arguments #
+list(1, 2, 3);
+
+# Assign a tuple of variables to a tuple of values #
+(a, b, c) = (1, 2, 3);
+
+# Assign a tuple of variables to the values of a box #
+(a, b, c) = list(1, 2, 3);
+
+# Create a method with a tuple of parameters and an expression #
+print = (value) {
+    log(value);
+};
+
+# Pass a tuple of a single argument #
+list 1;
+
+# Create a method with a tuple of a single parameter and an expression #
+print = value {
+    log(value);
+};
+```
+
+You can spread an element using two dots (`..`).
+```rb
+(1, ..list(2, 3), 4)
+```
+
+You can name an element using a colon (`:`).
+```rb
+(a: 1, b: 2, 3)
+```
+
+You can put a tuple inside a tuple.
+```rb
+(1, (2, 3), 4)
+```
+
+### Expressions
+
+An expression is an instruction with a resulting value.
+
+#### Multi Expression
+
+A list of expressions separated by semicolons (`;`).
+```rb
+a; b; c
+```
+
+#### Get Expression
+
+Gets the value of a variable, with an optional target expression.
+```rb
+my_variable
+```
+```rb
+target.my_variable
+```
+
+#### Assign Expression
+
+Assigns the value of a variable, with an optional target expression.
+```rb
+my_variable = value
+```
+```rb
+target.my_variable = value
+```
+
+#### Compound Assign Expression
+
+Assigns the value of a variable using the current variable value, with an optional target expression.
+```rb
+my_variable = .add(1)
+```
+```rb
+target.my_variable = .add(1)
+```
+
+#### Call Expression
+
+Calls the target expression with a tuple or box of arguments.
+```rb
+log("hi")
+```
+
+#### Box Expression
+
+Creates a box with a method, running an optional expression in the box.
+```rb
+{
+    name = "John Doe";
+    health = 9_999_999;
+}
+```
+
+#### String Expression
+
+Creates a string box with an array of UTF-8 bytes.
+```rb
+"hello 世界"
+```
+
+#### Integer Expression
+
+Creates an integer box with a 64-bit signed integer.
+```rb
+42
+```
+
+#### Real Expression
+
+Creates a real box with a 64-bit double.
+```rb
+42.0
+```
+
+#### External Call Expression
+
+Calls an external method with a tuple or box of arguments.
+```rb
+external_method(1, 2, 3)
+```
+
+### Components
+
+Every box has a sequence of components, which includes itself at the start and `Box` at the end.
+
+If a box has a variable called `components`, this is added to the sequence of components in a breadth-first search.
+
+This can be used for Object-Oriented Programming (OOP) and multiple-inheritance.
+```rb
+animal = {
+    favorite_food = "bread";
+};
+meowing_object = {
+    meow = () {
+        log("meow!");
+    };
+};
+cat = {
+    components = list(animal, meowing_object);
+
+    favorite_food = "fish";
+
+    log(favorite_food); # fish #
+    meow(); # meow! #
+};
+```
+
+### Exceptions
+
+Exceptions can be thrown with `throw` and caught with `catch`. These are used for control flow.
+```rb
+result = catch (break_loops, () {
     for (range(1, 10), (i) {
         for (range(1, 10), (j) {
             if (i.equals(5) .or (j.equals(3)) {
@@ -48,205 +239,11 @@ catch (break_loops, () {
 });
 ```
 
+### Type Annotations
+
+A variable's type can be annotated with a tuple after its name. These annotations are ignored at runtime.
 ```rb
-# Compound Assignment #
-
-a = 1;
-a = a.add(2);
-a = .add(2);
-```
-
-```rb
-# Macros #
-
-a = b.and(c);
-
-$macro("&&", (".and(", ")"));
-a = b && c;
-```
-
-```rb
-# Classes #
-
-Cat = {
-    meow = () {
-        log("Meow");
-    };
-
-    get = () {
-        return(this().copy()); # Equivalent to `throw(Return_Values(this().copy()))` #
-    };
-};
-
-tama = Cat();
-tama.meow();
-```
-
-```rb
-# Static Classes #
-
-Cat = {
-    name = "";
-
-    create = (name) {
-        this().name = name;
-    };
-
-    get = () {
-        log("meow");
-    };
-};
-
-tama = Cat.create("Tama");
-log(tama.name); # Tama #
-tama(); # meow #
-```
-
-```rb
-# Current Scope #
-
-number = 5;
-log(this(false).get("number")); # 5 #
-```
-
-```rb
-# Inheritance #
-
-Animal = {
-    name = () {
-        return("Animal");
-    };
-};
-
-Cat = {
-    components = list(Animal);
-
-    meow = () {
-        log("Meow");
-    };
-};
-
-tama = Cat();
-log(tama.name); # Animal #
-tama.meow(); # Meow #
-```
-
-```rb
-# Actors #
-
-a1 = Actor();
-a2 = Actor();
-
-resource = "food";
-
-a1.run(() {
-    log(resource.append(" 1"));
-});
-a2.run(() {
-    wait();
-    log(resource.append(" 2"));
-});
-
-log(resource.append(" 3"));
-wait();
-log(resource.append(" 4"));
-
-##
-# food 3
-# food 1
-# food 4
-# food 2
-##
-```
-
-```rb
-# Named Arguments & Default Arguments #
-
-meow = (count: 3) {
-    s = "";
-    for (range(1, count), (n) {
-        s = s.append("meow").append(" ");
-    });
-    log(s);
-};
-
-meow(); # meow meow meow  #
-meow(count: 5); # meow meow meow meow meow  #
-meow(2); # meow meow  #
-```
-
-```rb
-# Variadic Arguments #
-
-do_something = (a, ..args, b) {
-    log("a = \{a}, args = \{args}, b = \{b}");
-};
-
-do_something(1, 2, 3, 4); # a = 1, args = (2, 3), b = 4 #
-```
-
-```rb
-# Generators #
-
-# Explicit #
-get_numbers = () {
-    return({
-        components = list(generator);
-
-        number = 0;
-
-        current = () {
-            return(number);
-        };
-        next = () {
-            number = number.add(1);
-            return(true, number);
-        };
-    });
-};
-
-# Shorthand #
-get_numbers = () {
-    number = 0;
-
-    return generator.create(() {
-        number = number.add(1);
-        return(number);
-    });
-};
-```
-
-```rb
-# Static Typing #
-
 numbers list.of(int) = list(1, 2, 3);
 
-stringlist (list.of(string)) = list("a");
-stringlist.append("b");
-
-num (int, null) = null;
-log(num); # null #
+number (integer, null) = null;
 ```
-
-## Tuples
-
-Tuples are written in brackets (`()`) and contain values separated by commas (`,`).
-
-Tuples can contain:
-- `..` - spread operator - adds each element of the value to the tuple
-- value - added to the tuple
-- another tuple - each element added to the tuple
-
-## Calls
-
-Methods can be called with a tuple OR an object.
-
-## Comments
-
-Comments start with a sequence of `#`s and end with the same number of `#`s.
-
-## Special Words
-
-There are no reserved keywords, but these are "special" words:
-- `get` - name of sub-object called when object called
-- `components` - name of list to search for identifiers (first checks `scope()`, then `this()`, then each of `components` in breadth-first search)
