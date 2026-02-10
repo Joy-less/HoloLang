@@ -36,17 +36,16 @@ log(numbers); # [2, 4, 6, 8, 10] #
 ```rb
 # Break Loop #
 
-break = {};
-try (() {
+break_loops = {};
+catch (break_loops, () {
     for (range(1, 10), (i) {
         for (range(1, 10), (j) {
             if (i.equals(5) .or (j.equals(3)) {
-                throw(break);
+                throw(break_loops);
             });
         });
     });
-})
-.catch(break, () { });
+});
 ```
 
 ```rb
@@ -74,8 +73,8 @@ Cat = {
         log("Meow");
     };
 
-    call = () {
-        return(this().copy());
+    get = () {
+        return(this().copy()); # Equivalent to `throw(Return_Values(this().copy()))` #
     };
 };
 
@@ -93,7 +92,7 @@ Cat = {
         this().name = name;
     };
 
-    call = () {
+    get = () {
         log("meow");
     };
 };
@@ -163,7 +162,7 @@ log(resource.append(" 4"));
 ```rb
 # Named Arguments & Default Arguments #
 
-meow = (count = 3) {
+meow = (count: 3) {
     s = "";
     for (range(1, count), (n) {
         s = s.append("meow").append(" ");
@@ -171,9 +170,19 @@ meow = (count = 3) {
     log(s);
 };
 
-meow(); # meow meow meow  "
-meow(count = 5); # meow meow meow meow meow  #
+meow(); # meow meow meow  #
+meow(count: 5); # meow meow meow meow meow  #
 meow(2); # meow meow  #
+```
+
+```rb
+# Variadic Arguments #
+
+do_something = (a, ..args, b) {
+    log("a = \{a}, args = \{args}, b = \{b}");
+};
+
+do_something(1, 2, 3, 4); # a = 1, args = (2, 3), b = 4 #
 ```
 
 ```rb
@@ -208,26 +217,36 @@ get_numbers = () {
 ```
 
 ```rb
-# Tuples #
-
-(num1, num2, num3) = (1, 2, 3);
-log((num1, num2, num3).mul(2)); # (2, 4, 6)
-```
-
-```rb
 # Static Typing #
 
-numbers tuple.of(int) = (1, 2, 3);
+numbers list.of(int) = list(1, 2, 3);
 
 stringlist (list.of(string)) = list("a");
 stringlist.append("b");
 
 num (int, null) = null;
-log(num); # null
+log(num); # null #
 ```
+
+## Tuples
+
+Tuples are written in brackets (`()`) and contain values separated by commas (`,`).
+
+Tuples can contain:
+- `..` - spread operator - adds each element of the value to the tuple
+- value - added to the tuple
+- another tuple - each element added to the tuple
+
+## Calls
+
+Methods can be called with a tuple OR an object.
+
+## Comments
+
+Comments start with a sequence of `#`s and end with the same number of `#`s.
 
 ## Special Words
 
 There are no reserved keywords, but these are "special" words:
-- `call` - name of sub-object called when object called
+- `get` - name of sub-object called when object called
 - `components` - name of list to search for identifiers (first checks `scope()`, then `this()`, then each of `components` in breadth-first search)
